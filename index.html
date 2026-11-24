@@ -1,0 +1,1569 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BioBlind QR · Gemelo Digital 3D de Contenedor y Trazabilidad en Tránsito</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  <!-- Three.js r128 + OrbitControls -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #060b14;
+      color: #f1f5f9;
+      overflow-x: hidden;
+    }
+    .font-mono-code {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #10b981;
+    }
+    /* Range Sliders */
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: #1e293b;
+      height: 6px;
+      border-radius: 999px;
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #10b981;
+      cursor: pointer;
+      border: 2px solid #ecfdf5;
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.6);
+      transition: transform 0.15s ease;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+    }
+    #canvas-container {
+      width: 100%;
+      height: 100%;
+      min-height: 460px;
+      position: relative;
+      cursor: grab;
+    }
+    #canvas-container:active {
+      cursor: grabbing;
+    }
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.78);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(51, 65, 85, 0.7);
+    }
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 12px rgba(16, 185, 129, 0.25); }
+      50% { box-shadow: 0 0 22px rgba(6, 182, 212, 0.45); }
+    }
+    .glow-border {
+      animation: pulseGlow 3.5s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-emerald-500 selection:text-slate-950">
+
+  <!-- Notificación Toast Flotante (Sin alert) -->
+  <div id="toast-box" class="fixed bottom-5 right-5 z-50 hidden transform transition-all duration-300">
+    <div class="glass-panel border-emerald-500/60 text-emerald-100 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 max-w-md">
+      <span id="toast-icon" class="text-emerald-400 text-lg font-bold">✓</span>
+      <div>
+        <p id="toast-title" class="text-xs font-bold uppercase tracking-wider text-emerald-400">Operación Exitosa</p>
+        <p id="toast-msg" class="text-xs text-slate-200 mt-0.5">Datos sincronizados correctamente.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Barra Superior Institucional -->
+  <header class="sticky top-0 z-40 glass-panel border-b border-slate-800/90 px-4 sm:px-6 py-3">
+    <div class="max-w-[1600px] mx-auto flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center text-slate-950 font-extrabold text-lg shadow-lg shadow-emerald-500/20">
+          QR
+        </div>
+        <div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <h1 class="text-base sm:text-lg font-extrabold tracking-tight text-white">
+              BioBlind <span class="text-emerald-400">QR</span> · Gemelo Digital 3D en Tránsito
+            </h1>
+            <span class="text-[10px] font-mono-code uppercase px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+              Tulcán, Carchi – Ecuador
+            </span>
+          </div>
+          <p class="text-xs text-slate-400">
+            Contenedor Reefer Abierto · 18 Cajas QR Grabado Láser · Tinta Termocrómica · ERP + CRM + Solidity
+          </p>
+        </div>
+      </div>
+
+      <!-- Badges de Estado del Ecosistema -->
+      <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
+        <div class="px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-700/80 flex items-center gap-2">
+          <span id="header-erp-dot" class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+          <span class="text-xs text-slate-300 font-medium">ERP: <strong id="header-erp-status" class="text-emerald-400">Aprobado Exportación</strong></span>
+        </div>
+        <div class="px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-700/80 hidden md:flex items-center gap-2">
+          <span class="text-xs text-cyan-300 font-mono-code">Solidity: BioBlindExportContract.sol</span>
+        </div>
+        <button id="btn-scan-ai" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-bold text-xs shadow-lg shadow-emerald-500/20 transition active:scale-95 flex items-center gap-1.5">
+          <span>⚡</span> Escanear Lote Rápido (IA + QR)
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Contenido Principal Grid -->
+  <main class="flex-1 max-w-[1600px] w-full mx-auto p-4 sm:p-6 grid grid-cols-1 xl:grid-cols-12 gap-5">
+
+    <!-- COLUMNA IZQUIERDA (6 cols): Visor 3D Interactivo Contenedor Reefer + Pallets + Cajas QR -->
+    <section class="xl:col-span-6 flex flex-col gap-5">
+      <!-- Contenedor 3D -->
+      <div class="glass-panel rounded-2xl overflow-hidden flex flex-col glow-border">
+        <div class="px-4 py-3 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2 bg-slate-900/60">
+          <div>
+            <span class="text-[11px] font-mono-code uppercase tracking-wider text-cyan-400">Tránsito Logístico en Tiempo Real</span>
+            <h2 class="text-sm font-bold text-white">Contenedor Reefer Abierto · 3 Pallets / 18 Cajas Kraft QR</h2>
+          </div>
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <button id="btn-toggle-transit" class="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-xs font-semibold text-emerald-300 border border-emerald-500/40 transition">
+              Tránsito: EN MARCHA
+            </button>
+            <button id="btn-reset-cam" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 border border-slate-700 transition">
+              Vista General
+            </button>
+          </div>
+        </div>
+
+        <!-- Barra de Vistas Rápidas de Cámara -->
+        <div class="px-4 py-2 bg-slate-950/90 border-b border-slate-800/80 flex items-center gap-1.5 flex-wrap">
+          <span class="text-[10px] uppercase tracking-wider text-slate-400 mr-1">Cámaras 3D:</span>
+          <button data-cam="general" class="cam-preset-btn px-2.5 py-1 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-[11px] font-semibold transition">
+            Vista General Contenedor
+          </button>
+          <button data-cam="interior" class="cam-preset-btn px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[11px] font-medium transition">
+            Interior Cajas QR
+          </button>
+          <button data-cam="laser" class="cam-preset-btn px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[11px] font-medium transition">
+            Escaneo Láser Frontal
+          </button>
+          <button data-cam="reefer" class="cam-preset-btn px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[11px] font-medium transition">
+            Cabina / Unidad Frío
+          </button>
+        </div>
+
+        <!-- Canvas Three.js -->
+        <div id="canvas-container" class="bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
+          <!-- Overlay superior izquierdo: Sensor Termocrómico -->
+          <div class="absolute top-3 left-3 z-10 pointer-events-none flex flex-col gap-2 max-w-[310px]">
+            <div id="thermo-badge" class="px-3 py-2 rounded-xl bg-slate-950/85 border border-emerald-500/50 backdrop-blur-md shadow-lg">
+              <div class="flex items-center gap-2">
+                <span id="thermo-dot" class="w-3 h-3 rounded-full bg-emerald-400 shadow-[0_0_10px_#10b981]"></span>
+                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-300">Tinta Termocrómica (18 Cajas)</span>
+              </div>
+              <p id="thermo-status-text" class="text-xs font-extrabold text-emerald-400 mt-0.5">ÓPTIMO · Cadena de Frío Estable (8°C)</p>
+            </div>
+          </div>
+
+          <!-- Overlay superior derecho: Resultado de Escaneo IA -->
+          <div class="absolute top-3 right-3 z-10 pointer-events-none">
+            <div id="scan-result-pill" class="px-3 py-2 rounded-xl bg-slate-950/85 border border-cyan-500/40 backdrop-blur-md text-right shadow-lg">
+              <span class="text-[10px] font-mono-code uppercase text-cyan-400 block">Auditoría Móvil IA + QR</span>
+              <strong id="scan-timing-text" class="text-xs font-extrabold text-white block">18 cajas validadas en 1.8 s</strong>
+              <span class="text-[10px] text-emerald-400 block">vs. 45 min inspección manual</span>
+            </div>
+          </div>
+
+          <!-- Overlay inferior: Grabado Láser y Ayuda OrbitControls -->
+          <div class="absolute bottom-3 left-3 right-3 z-10 pointer-events-none flex flex-wrap items-end justify-between gap-2">
+            <div class="px-3 py-2 rounded-xl bg-slate-950/85 border border-slate-800 backdrop-blur-md">
+              <p class="text-[10px] uppercase tracking-wider text-slate-400">Grabado Láser Indeleble en Empaques (`BB-PKG-101..118`)</p>
+              <p id="overlay-lote-code" class="text-xs font-mono-code font-bold text-emerald-300">BB-MIEL-2026-050 · HS 0409.00.10.00</p>
+            </div>
+            <div class="px-2.5 py-1.5 rounded-lg bg-slate-950/80 border border-slate-800 text-[11px] text-slate-400">
+              Clic + Arrastrar: Orbitar · Rueda: Zoom · Clic Der: Mover
+            </div>
+          </div>
+        </div>
+
+        <!-- Barra de Telemetría Física -->
+        <div class="p-4 bg-slate-900/70 border-t border-slate-800 grid grid-cols-3 gap-3 text-center">
+          <div class="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800/80">
+            <p class="text-[10px] uppercase text-slate-400">Cajas Activas QR</p>
+            <p id="telemetry-boxes" class="text-sm font-extrabold text-cyan-400 mt-0.5">18 / 18 Verificadas</p>
+          </div>
+          <div class="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800/80">
+            <p class="text-[10px] uppercase text-slate-400">Ahorro Embarque</p>
+            <p class="text-sm font-extrabold text-emerald-400 mt-0.5">44 min 58 s (96%)</p>
+          </div>
+          <div class="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800/80">
+            <p class="text-[10px] uppercase text-slate-400">Permiso Sanitario</p>
+            <p id="sanitary-badge" class="text-sm font-extrabold text-emerald-300 mt-0.5">AGRO-EC · Vigente</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ficha Técnica ERP & CRM del Lote Seleccionado -->
+      <div class="glass-panel rounded-2xl p-4 sm:p-5 flex flex-col gap-3">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-emerald-400">Sincronización ERP & CRM (Origen Tulcán, Carchi)</h3>
+          <span id="crm-stage-pill" class="text-[11px] font-mono-code px-2.5 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+            Etapa 3: Cotización Aceptada
+          </span>
+        </div>
+        <div class="grid grid-cols-2 gap-3 text-xs">
+          <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+            <span class="text-slate-400 block text-[11px]">Productor / Origen</span>
+            <strong id="info-origen" class="text-slate-100 mt-0.5 block">Finca San José – Tulcán, Carchi</strong>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+            <span class="text-slate-400 block text-[11px]">Importador B2B (CRM)</span>
+            <strong id="info-importador" class="text-slate-100 mt-0.5 block">Andes Gourmet Imports (EE.UU.)</strong>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+            <span class="text-slate-400 block text-[11px]">Partida Arancelaria (HS)</span>
+            <strong id="info-hs" class="text-emerald-300 font-mono-code mt-0.5 block">0409.00.10.00</strong>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+            <span class="text-slate-400 block text-[11px]">Rango Térmico Óptimo Reefer</span>
+            <strong id="info-temp-range" class="text-cyan-300 font-mono-code mt-0.5 block">4°C a 12°C</strong>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- COLUMNA DERECHA (6 cols): Controles Interactivos + KPIs + Sensibilidad + Solidity JSON -->
+    <section class="xl:col-span-6 flex flex-col gap-5">
+
+      <!-- Panel de Selección de Producto y Variables Operativas -->
+      <div class="glass-panel rounded-2xl p-4 sm:p-5">
+        <div class="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-800">
+          <div>
+            <span class="text-[11px] font-mono-code uppercase tracking-wider text-emerald-400">Parámetros del Gemelo Digital</span>
+            <h2 class="text-base font-bold text-white">Simulador Operativo (ERP), Comercial (CRM) y Térmico</h2>
+          </div>
+          <!-- Selector de Producto Real -->
+          <div class="w-full sm:w-auto min-w-[270px]">
+            <label for="product-select" class="block text-[10px] uppercase tracking-wider text-slate-400 mb-1">Producto Exportable Certificable</label>
+            <select id="product-select" class="w-full bg-slate-900 border border-emerald-500/40 text-slate-100 text-xs font-semibold rounded-xl px-3 py-2.5 focus:outline-none focus:border-emerald-400">
+              <option value="miel">Miel de abeja 100% pura multifloral (BB-MIEL-2026-050)</option>
+              <option value="cacao">Cacao fino de aroma (BB-CACAO-2026-108)</option>
+              <option value="aguacate">Aguacate Hass (BB-HASS-2026-215)</option>
+              <option value="quinua">Quinua blanca orgánica (BB-QUINUA-2026-312)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Grid de Sliders e Inputs -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+          <!-- 1. Temperatura Interna del Contenedor -->
+          <div class="p-3 rounded-xl bg-slate-900/75 border border-cyan-500/30">
+            <div class="flex justify-between items-center mb-1.5">
+              <label class="text-xs font-medium text-slate-200">Temperatura Interna Contenedor (°C)</label>
+              <span id="val-temp" class="text-xs font-mono-code font-bold text-cyan-400">8 °C</span>
+            </div>
+            <input id="input-temp" type="range" min="0" max="32" step="1" value="8" class="w-full" />
+            <div class="flex justify-between text-[9px] font-mono-code text-slate-400 mt-1">
+              <span>4–12°C Óptimo</span>
+              <span>13–20°C Alerta</span>
+              <span>&gt;20°C Ruptura</span>
+            </div>
+          </div>
+
+          <!-- 2. Kilogramos del Lote -->
+          <div class="p-3 rounded-xl bg-slate-900/75 border border-slate-800">
+            <div class="flex justify-between items-center mb-1.5">
+              <label class="text-xs font-medium text-slate-300">Cantidad Total del Lote (kg)</label>
+              <span id="val-kg" class="text-xs font-mono-code font-bold text-emerald-400">2,500 kg</span>
+            </div>
+            <input id="input-kg" type="range" min="500" max="15000" step="100" value="2500" class="w-full" />
+          </div>
+
+          <!-- 3. Costo Unitario -->
+          <div class="p-3 rounded-xl bg-slate-900/75 border border-slate-800">
+            <div class="flex justify-between items-center mb-1.5">
+              <label class="text-xs font-medium text-slate-300">Costo Unitario + QR ($/kg)</label>
+              <span id="val-cost" class="text-xs font-mono-code font-bold text-slate-200">$4.20 / kg</span>
+            </div>
+            <input id="input-cost" type="range" min="1.0" max="15.0" step="0.1" value="4.2" class="w-full" />
+          </div>
+
+          <!-- 4. Precio de Venta -->
+          <div class="p-3 rounded-xl bg-slate-900/75 border border-slate-800">
+            <div class="flex justify-between items-center mb-1.5">
+              <label class="text-xs font-medium text-slate-300">Precio Venta B2B ($/kg)</label>
+              <span id="val-price" class="text-xs font-mono-code font-bold text-emerald-400">$7.80 / kg</span>
+            </div>
+            <input id="input-price" type="range" min="1.5" max="22.0" step="0.1" value="7.8" class="w-full" />
+          </div>
+
+          <!-- 5. Costos Logísticos / Flete -->
+          <div class="p-3 rounded-xl bg-slate-900/75 border border-slate-800">
+            <div class="flex justify-between items-center mb-1.5">
+              <label class="text-xs font-medium text-slate-300">Flete Reefer, Aduana DAE & Seguro ($)</label>
+              <span id="val-freight" class="text-xs font-mono-code font-bold text-slate-200">$1,850</span>
+            </div>
+            <input id="input-freight" type="range" min="200" max="8000" step="50" value="1850" class="w-full" />
+          </div>
+
+          <!-- 6. Comisión Comercial -->
+          <div class="p-3 rounded-xl bg-slate-900/75 border border-slate-800">
+            <div class="flex justify-between items-center mb-1.5">
+              <label class="text-xs font-medium text-slate-300">Comisión Comercial CRM (%)</label>
+              <span id="val-comm" class="text-xs font-mono-code font-bold text-slate-200">4.0%</span>
+            </div>
+            <input id="input-comm" type="range" min="0" max="15" step="0.5" value="4" class="w-full" />
+          </div>
+
+          <!-- 7. Incoterm 2020 -->
+          <div class="p-3 rounded-xl bg-slate-900/75 border border-slate-800 flex items-center justify-between gap-2">
+            <label for="input-incoterm" class="text-xs font-medium text-slate-300">Incoterm® 2020</label>
+            <select id="input-incoterm" class="bg-slate-950 border border-slate-700 text-emerald-300 font-mono-code text-xs font-bold rounded-lg px-3 py-1.5 focus:outline-none focus:border-emerald-500">
+              <option value="EXW">EXW (En Fábrica Tulcán)</option>
+              <option value="FCA">FCA (Franco Porteador)</option>
+              <option value="FOB" selected>FOB (Franco a Bordo)</option>
+              <option value="CIF">CIF (Costo, Seguro y Flete)</option>
+            </select>
+          </div>
+
+          <!-- 8. Etapa CRM -->
+          <div class="p-3 rounded-xl bg-slate-900/75 border border-slate-800">
+            <div class="flex justify-between items-center mb-1.5">
+              <label class="text-xs font-medium text-slate-300">Etapa Negociación CRM (0–4)</label>
+              <span id="val-stage" class="text-xs font-mono-code font-bold text-cyan-400">Etapa 3 / 4</span>
+            </div>
+            <input id="input-stage" type="range" min="0" max="4" step="1" value="3" class="w-full" />
+          </div>
+        </div>
+      </div>
+
+      <!-- KPIs Financieros e Índice de Viabilidad -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div class="glass-panel rounded-2xl p-3.5 border-l-4 border-l-cyan-400">
+          <span class="text-[11px] text-slate-400 block">Ingreso Total Exportación</span>
+          <strong id="kpi-revenue" class="text-lg sm:text-xl font-extrabold text-white font-mono-code mt-1 block">$19,500</strong>
+        </div>
+        <div class="glass-panel rounded-2xl p-3.5 border-l-4 border-l-slate-500">
+          <span class="text-[11px] text-slate-400 block">Costo Total Operativo</span>
+          <strong id="kpi-total-cost" class="text-lg sm:text-xl font-extrabold text-slate-200 font-mono-code mt-1 block">$13,130</strong>
+        </div>
+        <div class="glass-panel rounded-2xl p-3.5 border-l-4 border-l-emerald-400">
+          <span class="text-[11px] text-slate-400 block">Utilidad Neta Proyectada</span>
+          <strong id="kpi-profit" class="text-lg sm:text-xl font-extrabold text-emerald-400 font-mono-code mt-1 block">$6,370</strong>
+        </div>
+        <div class="glass-panel rounded-2xl p-3.5 border-l-4 border-l-emerald-500">
+          <span class="text-[11px] text-slate-400 block">Rentabilidad Neta</span>
+          <strong id="kpi-margin" class="text-lg sm:text-xl font-extrabold text-emerald-300 font-mono-code mt-1 block">32.7%</strong>
+        </div>
+      </div>
+
+      <!-- Barra de Índice de Viabilidad -->
+      <div class="glass-panel rounded-2xl p-4">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-200">Índice de Viabilidad Integral (Financiera + Térmica + CRM)</span>
+            <p id="viability-diagnosis" class="text-xs text-emerald-400 mt-0.5">Alta viabilidad: Margen saludable y cadena de frío en rango óptimo.</p>
+          </div>
+          <div class="text-right">
+            <span id="viability-score" class="text-2xl font-extrabold font-mono-code text-emerald-400">91</span>
+            <span class="text-xs text-slate-400 font-mono-code">%</span>
+          </div>
+        </div>
+        <div class="w-full h-3 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+          <div id="viability-bar" class="h-full bg-gradient-to-r from-emerald-500 to-cyan-400 transition-all duration-300" style="width: 91%;"></div>
+        </div>
+      </div>
+
+      <!-- Tabla de Análisis de Sensibilidad (-10%, Base, +10%) -->
+      <div class="glass-panel rounded-2xl p-4 sm:p-5 overflow-hidden">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <span class="text-[11px] font-mono-code uppercase text-cyan-400">Simulación de Riesgo Antes de Embarcar</span>
+            <h3 class="text-sm font-bold text-white">Tabla de Análisis de Sensibilidad de Mercado (-10% | Base | +10%)</h3>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="border-b border-slate-800 text-slate-400 uppercase text-[10px]">
+                <th class="py-2.5 px-3">Escenario</th>
+                <th class="py-2.5 px-3">Precio Venta</th>
+                <th class="py-2.5 px-3">Ingreso Total</th>
+                <th class="py-2.5 px-3">Costo Total</th>
+                <th class="py-2.5 px-3">Utilidad Neta</th>
+                <th class="py-2.5 px-3">Margen</th>
+                <th class="py-2.5 px-3">Decisión</th>
+              </tr>
+            </thead>
+            <tbody id="sensitivity-tbody" class="divide-y divide-slate-800/70 font-mono-code">
+              <!-- Filas generadas por JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Bloque Payload JSON para Contrato Inteligente Solidity -->
+      <div class="glass-panel rounded-2xl p-4 sm:p-5">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div>
+            <span class="text-[11px] font-mono-code uppercase text-emerald-400">Blockchain · Respaldo Inmutable</span>
+            <h3 class="text-sm font-bold text-white">Payload JSON Sincronizado (`BioBlindExportContract.sol`)</h3>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="btn-copy-json" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition active:scale-95">
+              Copiar JSON
+            </button>
+            <button id="btn-send-solidity" class="px-3.5 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-bold transition active:scale-95">
+              Registrar en BioBlindExportContract.sol
+            </button>
+          </div>
+        </div>
+        <pre id="json-output" class="bg-slate-950 border border-slate-800 rounded-xl p-3.5 text-[11px] font-mono-code text-emerald-300 overflow-x-auto max-h-52 leading-relaxed"></pre>
+        <div id="tx-receipt" class="hidden mt-3 p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/40 text-xs font-mono-code text-emerald-200">
+          <!-- Recibo simulado de transacción -->
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <script>
+    // =========================================================================
+    // 1. BASE DE DATOS DE PRODUCTOS REALES (ERP + CRM + PARÁMETROS TÉRMICOS)
+    // =========================================================================
+    const PRODUCTS_DB = {
+      miel: {
+        id: 'BB-MIEL-2026-050',
+        nombre: 'Miel de abeja 100% pura multifloral',
+        hs: '0409.00.10.00',
+        origen: 'Finca San José – Tulcán, Carchi',
+        importador: 'Andes Gourmet Imports (EE.UU.)',
+        destino: 'Miami, Estados Unidos',
+        permiso: 'AGRO-EC-2026-8841',
+        empaque: 'BB-PKG-101..118 (Caja Kraft + Envase Vidrio)',
+        kg: 2500,
+        costo: 4.2,
+        precio: 7.8,
+        flete: 1850,
+        comision: 4.0,
+        incoterm: 'FOB',
+        etapa: 3,
+        tempActual: 8,
+        tempMin: 4,
+        tempMax: 12
+      },
+      cacao: {
+        id: 'BB-CACAO-2026-108',
+        nombre: 'Cacao fino de aroma',
+        hs: '1801.00.19.00',
+        origen: 'Asociación Productores Carchi Norte',
+        importador: 'Chocolaterie Helvetia AG (Suiza)',
+        destino: 'Zúrich, Suiza',
+        permiso: 'AGRO-EC-2026-9102',
+        empaque: 'BB-PKG-201..218 (Caja Kraft + Liner Hermético)',
+        kg: 5000,
+        costo: 3.6,
+        precio: 6.9,
+        flete: 3200,
+        comision: 3.5,
+        incoterm: 'CIF',
+        etapa: 4,
+        tempActual: 10,
+        tempMin: 4,
+        tempMax: 12
+      },
+      aguacate: {
+        id: 'BB-HASS-2026-215',
+        nombre: 'Aguacate Hass',
+        hs: '0804.40.00.00',
+        origen: 'Hacienda Miraflores – Valle del Chota / Carchi',
+        importador: 'EuroFresh Produce B.V. (Países Bajos)',
+        destino: 'Róterdam, Países Bajos',
+        permiso: 'AGRO-EC-2026-7730',
+        empaque: 'BB-PKG-301..318 (Caja Ventilada Refrigerada)',
+        kg: 8000,
+        costo: 1.45,
+        precio: 2.95,
+        flete: 4600,
+        comision: 5.0,
+        incoterm: 'CIF',
+        etapa: 3,
+        tempActual: 6,
+        tempMin: 4,
+        tempMax: 12
+      },
+      quinua: {
+        id: 'BB-QUINUA-2026-312',
+        nombre: 'Quinua blanca orgánica',
+        hs: '1008.50.90.00',
+        origen: 'Cooperativa Páramo Vivo – Tulcán, Carchi',
+        importador: 'BioNordic Foods AB (Suecia)',
+        destino: 'Gotemburgo, Suecia',
+        permiso: 'AGRO-EC-2026-6519',
+        empaque: 'BB-PKG-401..418 (Caja Kraft Multicapa)',
+        kg: 4000,
+        costo: 2.1,
+        precio: 4.15,
+        flete: 2400,
+        comision: 3.0,
+        incoterm: 'FOB',
+        etapa: 2,
+        tempActual: 9,
+        tempMin: 4,
+        tempMax: 12
+      }
+    };
+
+    const CRM_STAGES = [
+      'Etapa 0: Prospecto B2B Registrado',
+      'Etapa 1: Muestra QR & Ficha Técnica Enviada',
+      'Etapa 2: Negociación Incoterms en Curso',
+      'Etapa 3: Cotización Aceptada & Lote Reservado',
+      'Etapa 4: Cierre Comercial & Listo DAE'
+    ];
+
+    // Estado activo de la simulación
+    let state = { ...PRODUCTS_DB.miel };
+    let isTransitMoving = true;
+    let aiScanProgress = -1; // -1 = inactivo, 0..1 = escaneando contenedor
+
+    // =========================================================================
+    // 2. ESCENA 3D INTERACTIVA CON THREE.JS: CONTENEDOR REEFER ABIERTO + 18 CAJAS QR
+    // =========================================================================
+    let scene, camera, renderer, controls;
+    let transportGroup, roadTexture, reeferFanMesh, beaconLightMesh, interiorLight;
+    let wheelsList = [];
+    let cargoBoxes = []; // Almacena las 18 cajas con sus texturas QR, tiras termocrómicas y resaltados
+    let scanLaserGroup;
+    let camTargetPos = new THREE.Vector3(6.8, 3.6, 7.6);
+    let camTargetLook = new THREE.Vector3(0.2, 1.35, 0);
+    let isCamTransitioning = false;
+
+    const CAMERA_PRESETS = {
+      general: {
+        pos: new THREE.Vector3(6.8, 3.6, 7.6),
+        look: new THREE.Vector3(0.2, 1.35, 0)
+      },
+      interior: {
+        pos: new THREE.Vector3(4.3, 2.2, 1.4),
+        look: new THREE.Vector3(0.0, 1.55, 0.2)
+      },
+      laser: {
+        pos: new THREE.Vector3(3.6, 1.85, 3.4),
+        look: new THREE.Vector3(0.5, 1.45, 0.85)
+      },
+      reefer: {
+        pos: new THREE.Vector3(-5.8, 2.9, 4.6),
+        look: new THREE.Vector3(-3.3, 1.6, 0)
+      }
+    };
+
+    function init3D() {
+      const container = document.getElementById('canvas-container');
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+
+      scene = new THREE.Scene();
+      scene.fog = new THREE.FogExp2(0x060b14, 0.032);
+
+      camera = new THREE.PerspectiveCamera(42, width / height, 0.1, 120);
+      camera.position.copy(CAMERA_PRESETS.general.pos);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setSize(width, height);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      container.appendChild(renderer.domElement);
+
+      // OrbitControls para explorar libremente el interior del contenedor
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.07;
+      controls.minDistance = 2.4;
+      controls.maxDistance = 16;
+      controls.maxPolarAngle = Math.PI / 2 - 0.03;
+      controls.target.copy(CAMERA_PRESETS.general.look);
+      controls.addEventListener('start', () => {
+        isCamTransitioning = false;
+      });
+
+      // Iluminación ambiental y direccional realista
+      const ambientLight = new THREE.AmbientLight(0xdbeafe, 0.72);
+      scene.add(ambientLight);
+
+      const sunLight = new THREE.DirectionalLight(0xffffff, 1.05);
+      sunLight.position.set(8, 12, 9);
+      sunLight.castShadow = true;
+      sunLight.shadow.mapSize.width = 1024;
+      sunLight.shadow.mapSize.height = 1024;
+      scene.add(sunLight);
+
+      const rimLight = new THREE.DirectionalLight(0x38bdf8, 0.45);
+      rimLight.position.set(-8, 6, -6);
+      scene.add(rimLight);
+
+      // Luz interior cálida/fría dentro del contenedor abierto
+      interiorLight = new THREE.PointLight(0x10b981, 1.25, 9);
+      interiorLight.position.set(0.4, 2.35, 0.8);
+      scene.add(interiorLight);
+
+      // Construir entorno de carretera / pista logística animada
+      buildLogisticsRoad();
+
+      // Grupo principal del Transporte (Chasis + Contenedor Reefer Abierto + Pallets + 18 Cajas QR)
+      transportGroup = new THREE.Group();
+      scene.add(transportGroup);
+
+      buildChassisAndWheels();
+      buildOpenReeferContainer();
+      buildPalletsAndCargoBoxes();
+      buildLaserScannerRig();
+
+      setup3DEvents(container);
+      animate3D();
+    }
+
+    // Construye la carretera/pista portuaria animada debajo del transporte
+    function buildLogisticsRoad() {
+      const roadCanvas = document.createElement('canvas');
+      roadCanvas.width = 512;
+      roadCanvas.height = 512;
+      const ctx = roadCanvas.getContext('2d');
+
+      // Asfalto oscuro
+      ctx.fillStyle = '#0b1220';
+      ctx.fillRect(0, 0, 512, 512);
+
+      // Textura granulada
+      for (let i = 0; i < 4000; i++) {
+        ctx.fillStyle = Math.random() > 0.5 ? 'rgba(30, 41, 59, 0.45)' : 'rgba(2, 6, 23, 0.5)';
+        ctx.fillRect(Math.random() * 512, Math.random() * 512, 3, 2);
+      }
+
+      // Líneas amarillas/cian de carril logístico
+      ctx.fillStyle = '#eab308';
+      ctx.fillRect(0, 36, 512, 10);
+      ctx.fillRect(0, 466, 512, 10);
+
+      // Líneas discontinuas centrales
+      ctx.fillStyle = '#38bdf8';
+      for (let x = 20; x < 512; x += 128) {
+        ctx.fillRect(x, 250, 72, 12);
+      }
+
+      roadTexture = new THREE.CanvasTexture(roadCanvas);
+      roadTexture.wrapS = THREE.RepeatWrapping;
+      roadTexture.wrapT = THREE.RepeatWrapping;
+      roadTexture.repeat.set(6, 1);
+
+      const roadGeo = new THREE.PlaneGeometry(42, 9.5);
+      const roadMat = new THREE.MeshStandardMaterial({
+        map: roadTexture,
+        roughness: 0.88,
+        metalness: 0.1
+      });
+      const roadMesh = new THREE.Mesh(roadGeo, roadMat);
+      roadMesh.rotation.x = -Math.PI / 2;
+      roadMesh.receiveShadow = true;
+      scene.add(roadMesh);
+
+      // Postes de luz / referencia lateral que refuerzan la sensación de avance
+      const grid = new THREE.GridHelper(42, 42, 0x10b981, 0x0f172a);
+      grid.position.y = 0.01;
+      grid.material.opacity = 0.25;
+      grid.material.transparent = true;
+      scene.add(grid);
+    }
+
+    // Construye el chasis/plataforma de transporte con ejes, ruedas y baliza
+    function buildChassisAndWheels() {
+      const chassisGroup = new THREE.Group();
+      transportGroup.add(chassisGroup);
+
+      const steelMat = new THREE.MeshStandardMaterial({
+        color: 0x1e293b,
+        roughness: 0.45,
+        metalness: 0.75
+      });
+
+      // Vigas longitudinales del chasis
+      const beamLeft = new THREE.Mesh(new THREE.BoxGeometry(8.2, 0.22, 0.18), steelMat);
+      beamLeft.position.set(0, 0.68, 0.85);
+      chassisGroup.add(beamLeft);
+
+      const beamRight = new THREE.Mesh(new THREE.BoxGeometry(8.2, 0.22, 0.18), steelMat);
+      beamRight.position.set(0, 0.68, -0.85);
+      chassisGroup.add(beamRight);
+
+      // Travesaños y parachoques trasero
+      for (let x = -3.8; x <= 3.8; x += 1.25) {
+        const cross = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.18, 2.35), steelMat);
+        cross.position.set(x, 0.68, 0);
+        chassisGroup.add(cross);
+      }
+
+      // Ejes y 8 ruedas dobles (2 ejes traseros + 1 eje delantero de plataforma)
+      const tireMat = new THREE.MeshStandardMaterial({ color: 0x090d16, roughness: 0.85 });
+      const rimMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.8, roughness: 0.25 });
+
+      const axlePositionsX = [-2.7, 2.1, 3.25];
+      axlePositionsX.forEach((axX) => {
+        const axleBar = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.45, 12), steelMat);
+        axleBar.rotation.x = Math.PI / 2;
+        axleBar.position.set(axX, 0.44, 0);
+        chassisGroup.add(axleBar);
+
+        [-1.08, 1.08].forEach((zSide) => {
+          const wheelUnit = new THREE.Group();
+          wheelUnit.position.set(axX, 0.44, zSide);
+
+          const tire = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.44, 0.28, 20), tireMat);
+          tire.rotation.x = Math.PI / 2;
+          tire.castShadow = true;
+          wheelUnit.add(tire);
+
+          const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.30, 14), rimMat);
+          rim.rotation.x = Math.PI / 2;
+          wheelUnit.add(rim);
+
+          // Pernos visuales para notar el giro
+          const lug = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.05, 0.31), steelMat);
+          wheelUnit.add(lug);
+
+          chassisGroup.add(wheelUnit);
+          wheelsList.push(wheelUnit);
+        });
+      });
+    }
+
+    // Construye el Contenedor Marítimo Refrigerado (Reefer) abierto lateral y posteriormente
+    function buildOpenReeferContainer() {
+      const containerGroup = new THREE.Group();
+      containerGroup.position.set(0, 0.82, 0); // Apoyado sobre el chasis
+      transportGroup.add(containerGroup);
+
+      const length = 7.6;
+      const height = 2.45;
+      const width = 2.42;
+
+      // Materiales metálicos corrugados reales
+      const wallTexture = createCorrugatedTexture();
+      const outerWallMat = new THREE.MeshStandardMaterial({
+        map: wallTexture,
+        color: 0xe2e8f0,
+        roughness: 0.42,
+        metalness: 0.35
+      });
+
+      const innerWallMat = new THREE.MeshStandardMaterial({
+        map: wallTexture,
+        color: 0xcbd5e1,
+        roughness: 0.38,
+        metalness: 0.45
+      });
+
+      const frameMat = new THREE.MeshStandardMaterial({
+        color: 0x0f172a,
+        roughness: 0.4,
+        metalness: 0.8
+      });
+
+      const isoCornerMat = new THREE.MeshStandardMaterial({
+        color: 0x10b981,
+        roughness: 0.35,
+        metalness: 0.6
+      });
+
+      // 1. Piso acanalado de aluminio (T-bar reefer floor)
+      const floorGeo = new THREE.BoxGeometry(length, 0.14, width);
+      const floorMat = new THREE.MeshStandardMaterial({
+        color: 0x64748b,
+        roughness: 0.35,
+        metalness: 0.8
+      });
+      const floorMesh = new THREE.Mesh(floorGeo, floorMat);
+      floorMesh.position.set(0, 0.07, 0);
+      floorMesh.receiveShadow = true;
+      containerGroup.add(floorMesh);
+
+      // Rieles metálicos sobre el piso
+      for (let z = -1.0; z <= 1.0; z += 0.25) {
+        const rail = new THREE.Mesh(new THREE.BoxGeometry(length - 0.3, 0.03, 0.05), frameMat);
+        rail.position.set(0, 0.15, z);
+        containerGroup.add(rail);
+      }
+
+      // 2. Pared lateral izquierda (fondo, cerrada para dar contraste al interior)
+      const backWall = new THREE.Mesh(new THREE.BoxGeometry(length, height, 0.1), outerWallMat);
+      backWall.position.set(0, height / 2, -width / 2 + 0.05);
+      backWall.castShadow = true;
+      backWall.receiveShadow = true;
+      containerGroup.add(backWall);
+
+      // 3. Techo translúcido / semiabierto para máxima visibilidad interior desde arriba
+      const roofPanel = new THREE.Mesh(
+        new THREE.BoxGeometry(length, 0.06, width),
+        new THREE.MeshStandardMaterial({
+          color: 0x94a3b8,
+          transparent: true,
+          opacity: 0.22,
+          roughness: 0.2,
+          metalness: 0.5
+        })
+      );
+      roofPanel.position.set(0, height, 0);
+      containerGroup.add(roofPanel);
+
+      // 4. Costado derecho ABIERTO (solo vigas perimetrales ISO para ver todas las cajas QR)
+      const postPositionsX = [-length / 2, 0, length / 2];
+      postPositionsX.forEach((px) => {
+        // Postes esquineros e intermedio
+        const postFront = new THREE.Mesh(new THREE.BoxGeometry(0.14, height, 0.14), frameMat);
+        postFront.position.set(px, height / 2, width / 2 - 0.07);
+        containerGroup.add(postFront);
+
+        const postBack = new THREE.Mesh(new THREE.BoxGeometry(0.14, height, 0.14), frameMat);
+        postBack.position.set(px, height / 2, -width / 2 + 0.07);
+        containerGroup.add(postBack);
+      });
+
+      // Largueros superiores e inferiores del lado abierto
+      const topRailRight = new THREE.Mesh(new THREE.BoxGeometry(length, 0.14, 0.14), frameMat);
+      topRailRight.position.set(0, height - 0.05, width / 2 - 0.07);
+      containerGroup.add(topRailRight);
+
+      const topRailLeft = new THREE.Mesh(new THREE.BoxGeometry(length, 0.14, 0.14), frameMat);
+      topRailLeft.position.set(0, height - 0.05, -width / 2 + 0.07);
+      containerGroup.add(topRailLeft);
+
+      // Esquineros ISO verdes BioBlind
+      [-length / 2, length / 2].forEach((x) => {
+        [0.08, height - 0.04].forEach((y) => {
+          [-width / 2 + 0.07, width / 2 - 0.07].forEach((z) => {
+            const iso = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), isoCornerMat);
+            iso.position.set(x, y, z);
+            containerGroup.add(iso);
+          });
+        });
+      });
+
+      // 5. Unidad Frigorífica (Reefer Unit) en el extremo delantero (-X) con ventilador giratorio
+      const reeferUnit = new THREE.Mesh(new THREE.BoxGeometry(0.55, height - 0.15, width - 0.1), innerWallMat);
+      reeferUnit.position.set(-length / 2 + 0.25, height / 2, 0);
+      containerGroup.add(reeferUnit);
+
+      // Rejilla y ventilador frigorífico frontal
+      const fanHousing = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.45, 0.45, 0.08, 24),
+        frameMat
+      );
+      fanHousing.rotation.z = Math.PI / 2;
+      fanHousing.position.set(-length / 2 - 0.03, height * 0.62, 0);
+      containerGroup.add(fanHousing);
+
+      reeferFanMesh = new THREE.Group();
+      reeferFanMesh.position.set(-length / 2 - 0.07, height * 0.62, 0);
+      for (let b = 0; b < 4; b++) {
+        const blade = new THREE.Mesh(
+          new THREE.BoxGeometry(0.02, 0.72, 0.11),
+          new THREE.MeshStandardMaterial({ color: 0x38bdf8, metalness: 0.7, roughness: 0.2 })
+        );
+        blade.rotation.x = (b * Math.PI) / 4;
+        reeferFanMesh.add(blade);
+      }
+      containerGroup.add(reeferFanMesh);
+
+      // Luz baliza de telemetría sobre el techo delantero
+      beaconLightMesh = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.09, 0.11, 0.16, 16),
+        new THREE.MeshStandardMaterial({ color: 0x10b981, emissive: 0x10b981, emissiveIntensity: 0.9 })
+      );
+      beaconLightMesh.position.set(-length / 2 + 0.2, height + 0.12, width / 2 - 0.2);
+      containerGroup.add(beaconLightMesh);
+
+      // 6. Puertas traseras abiertas (+X) en ángulo de 115 grados
+      const doorMat = new THREE.MeshStandardMaterial({
+        map: wallTexture,
+        color: 0x1e293b,
+        roughness: 0.45,
+        metalness: 0.55
+      });
+
+      const leftDoor = new THREE.Group();
+      leftDoor.position.set(length / 2, height / 2, -width / 2 + 0.08);
+      const leftDoorLeaf = new THREE.Mesh(new THREE.BoxGeometry(0.08, height - 0.2, width / 2 - 0.12), doorMat);
+      leftDoorLeaf.position.set(0, 0, (width / 2 - 0.12) / 2);
+      leftDoor.add(leftDoorLeaf);
+      leftDoor.rotation.y = -2.15; // Abierta hacia afuera
+      containerGroup.add(leftDoor);
+
+      const rightDoor = new THREE.Group();
+      rightDoor.position.set(length / 2, height / 2, width / 2 - 0.08);
+      const rightDoorLeaf = new THREE.Mesh(new THREE.BoxGeometry(0.08, height - 0.2, width / 2 - 0.12), doorMat);
+      rightDoorLeaf.position.set(0, 0, -(width / 2 - 0.12) / 2);
+      rightDoor.add(rightDoorLeaf);
+      rightDoor.rotation.y = 2.15; // Abierta hacia afuera
+      containerGroup.add(rightDoor);
+    }
+
+    // Genera textura metálica corrugada para paredes de contenedor ISO
+    function createCorrugatedTexture() {
+      const c = document.createElement('canvas');
+      c.width = 256;
+      c.height = 256;
+      const ctx = c.getContext('2d');
+      for (let x = 0; x < 256; x += 16) {
+        ctx.fillStyle = '#cbd5e1';
+        ctx.fillRect(x, 0, 8, 256);
+        ctx.fillStyle = '#64748b';
+        ctx.fillRect(x + 8, 0, 8, 256);
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(8, 1);
+      return tex;
+    }
+
+    // Construye 3 pallets de madera estandarizados con 18 cajas Kraft inteligentes apiladas
+    function buildPalletsAndCargoBoxes() {
+      cargoBoxes = [];
+      const palletsGroup = new THREE.Group();
+      palletsGroup.position.set(0.25, 0.98, 0); // Sobre el piso del contenedor
+      transportGroup.add(palletsGroup);
+
+      const woodMat = new THREE.MeshStandardMaterial({
+        color: 0x92623a,
+        roughness: 0.85
+      });
+
+      const kraftBaseTexture = createKraftBaseTexture();
+      const boxBaseMat = new THREE.MeshStandardMaterial({
+        map: kraftBaseTexture,
+        roughness: 0.8,
+        metalness: 0.05
+      });
+
+      // 3 Pallets distribuidos a lo largo del contenedor
+      const palletXPositions = [-2.05, 0.15, 2.35];
+      let boxCounter = 1;
+
+      palletXPositions.forEach((px) => {
+        // Base del pallet de madera
+        const pallet = new THREE.Group();
+        pallet.position.set(px, 0, 0);
+
+        const topDeck = new THREE.Mesh(new THREE.BoxGeometry(1.85, 0.04, 1.95), woodMat);
+        topDeck.position.y = 0.11;
+        pallet.add(topDeck);
+
+        const bottomDeck = new THREE.Mesh(new THREE.BoxGeometry(1.85, 0.03, 1.95), woodMat);
+        bottomDeck.position.y = 0.015;
+        pallet.add(bottomDeck);
+
+        [-0.8, 0, 0.8].forEach((bz) => {
+          const block = new THREE.Mesh(new THREE.BoxGeometry(1.82, 0.07, 0.14), woodMat);
+          block.position.set(0, 0.06, bz);
+          pallet.add(block);
+        });
+
+        palletsGroup.add(pallet);
+
+        // Apilar 6 cajas por pallet (3 niveles de altura x 2 columnas a lo largo, 18 cajas totales)
+        const colsX = [-0.46, 0.46];
+        const rowsY = [0.40, 0.95, 1.50];
+
+        rowsY.forEach((by) => {
+          colsX.forEach((bx) => {
+            const pkgNum = String(boxCounter).padStart(3, '0');
+            const pkgCode = `BB-PKG-1${pkgNum.slice(1)}`;
+            boxCounter++;
+
+            const boxGroup = new THREE.Group();
+            boxGroup.position.set(px + bx, by, 0.12);
+
+            // Cuerpo principal de la caja Kraft (0.86 x 0.52 x 1.55)
+            const boxMesh = new THREE.Mesh(new THREE.BoxGeometry(0.86, 0.52, 1.55), boxBaseMat);
+            boxMesh.castShadow = true;
+            boxMesh.receiveShadow = true;
+            boxGroup.add(boxMesh);
+
+            // Etiqueta frontal/lateral expuesta hacia la apertura derecha (+Z) con QR láser y sello AGRO-EC
+            const qrCanvas = document.createElement('canvas');
+            qrCanvas.width = 512;
+            qrCanvas.height = 320;
+            const qrCtx = qrCanvas.getContext('2d');
+            const qrTexture = new THREE.CanvasTexture(qrCanvas);
+
+            const labelPlane = new THREE.Mesh(
+              new THREE.PlaneGeometry(0.76, 0.42),
+              new THREE.MeshStandardMaterial({ map: qrTexture, roughness: 0.65 })
+            );
+            labelPlane.position.set(0, 0.03, 0.78);
+            boxGroup.add(labelPlane);
+
+            // Franja inferior de Tinta Termocrómica sensible a temperatura (°C)
+            const thermoMat = new THREE.MeshStandardMaterial({
+              color: 0x10b981,
+              emissive: 0x10b981,
+              emissiveIntensity: 0.55,
+              roughness: 0.3
+            });
+            const thermoStrip = new THREE.Mesh(new THREE.BoxGeometry(0.76, 0.055, 0.015), thermoMat);
+            thermoStrip.position.set(0, -0.20, 0.78);
+            boxGroup.add(thermoStrip);
+
+            // Borde/Marco verde neón para resaltar verificación IA + QR
+            const highlightEdges = new THREE.LineSegments(
+              new THREE.EdgesGeometry(new THREE.BoxGeometry(0.88, 0.54, 1.57)),
+              new THREE.LineBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.25 })
+            );
+            boxGroup.add(highlightEdges);
+
+            palletsGroup.add(boxGroup);
+            cargoBoxes.push({
+              group: boxGroup,
+              pkgCode,
+              qrCanvas,
+              qrCtx,
+              qrTexture,
+              thermoMat,
+              highlightMat: highlightEdges.material,
+              worldX: px + bx
+            });
+          });
+        });
+      });
+
+      refreshAllBoxLabels();
+    }
+
+    // Genera textura base de cartón Kraft corrugado
+    function createKraftBaseTexture() {
+      const c = document.createElement('canvas');
+      c.width = 256;
+      c.height = 256;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#b68e5c';
+      ctx.fillRect(0, 0, 256, 256);
+      for (let i = 0; i < 2200; i++) {
+        ctx.fillStyle = Math.random() > 0.5 ? 'rgba(88, 58, 28, 0.14)' : 'rgba(232, 200, 158, 0.12)';
+        ctx.fillRect(Math.random() * 256, Math.random() * 256, 5, 1.5);
+      }
+      return new THREE.CanvasTexture(c);
+    }
+
+    // Dibuja el código QR de alta resolución grabado con láser en cada una de las 18 cajas
+    function refreshAllBoxLabels() {
+      cargoBoxes.forEach((box, idx) => {
+        const ctx = box.qrCtx;
+        // Fondo grabado láser oscuro sobre cartón Kraft
+        ctx.fillStyle = '#a37a49';
+        ctx.fillRect(0, 0, 512, 320);
+
+        ctx.strokeStyle = '#261708';
+        ctx.lineWidth = 8;
+        ctx.strokeRect(10, 10, 492, 300);
+
+        // Matriz QR nítida (13x13 módulos con patrones de posición ISO)
+        const qrX = 26, qrY = 32, qrSize = 216, cells = 13;
+        const cellS = qrSize / cells;
+        ctx.fillStyle = '#1a0f04';
+
+        for (let r = 0; r < cells; r++) {
+          for (let c = 0; c < cells; c++) {
+            const topLeftFinder = r < 3 && c < 3;
+            const topRightFinder = r < 3 && c >= cells - 3;
+            const bottomLeftFinder = r >= cells - 3 && c < 3;
+            const hashSeed = (state.id.charCodeAt((r + c + idx) % state.id.length) + r * 11 + c * 17 + idx * 5) % 3 === 0;
+            if (topLeftFinder || topRightFinder || bottomLeftFinder || hashSeed) {
+              ctx.fillRect(qrX + c * cellS, qrY + r * cellS, cellS - 2, cellS - 2);
+            }
+          }
+        }
+
+        // Texto grabado con láser a la derecha del QR
+        ctx.fillStyle = '#1a0f04';
+        ctx.font = 'bold 24px monospace';
+        ctx.fillText(state.id, 260, 62);
+
+        ctx.font = 'bold 22px monospace';
+        ctx.fillText(`CAJA: ${box.pkgCode}`, 260, 102);
+
+        ctx.font = 'bold 19px monospace';
+        ctx.fillText(`HS: ${state.hs}`, 260, 140);
+        ctx.fillText(`INCOTERM: ${state.incoterm}`, 260, 176);
+
+        // Sello sanitario AGRO-EC
+        ctx.fillStyle = '#064e3b';
+        ctx.fillRect(260, 198, 224, 44);
+        ctx.fillStyle = '#ecfdf5';
+        ctx.font = 'bold 19px sans-serif';
+        ctx.fillText('✓ SANIDAD AGRO-EC', 274, 227);
+
+        ctx.fillStyle = '#261708';
+        ctx.font = 'bold 15px sans-serif';
+        ctx.fillText('GRABADO LÁSER INDELEBLE · BIOBLIND QR', 26, 286);
+
+        box.qrTexture.needsUpdate = true;
+      });
+    }
+
+    // Construye el haz láser volumétrico para el escaneo rápido IA + QR
+    function buildLaserScannerRig() {
+      scanLaserGroup = new THREE.Group();
+      scanLaserGroup.visible = false;
+      transportGroup.add(scanLaserGroup);
+
+      // Cortina láser vertical cian/esmeralda que barre las 18 cajas
+      const beamGeo = new THREE.PlaneGeometry(0.08, 2.15);
+      const beamMat = new THREE.MeshBasicMaterial({
+        color: 0x22d3ee,
+        transparent: true,
+        opacity: 0.85,
+        side: THREE.DoubleSide
+      });
+      const beamPlane = new THREE.Mesh(beamGeo, beamMat);
+      beamPlane.rotation.y = Math.PI / 2;
+      beamPlane.scale.x = 22;
+      scanLaserGroup.add(beamPlane);
+
+      const laserPoint = new THREE.PointLight(0x22d3ee, 2.2, 6);
+      scanLaserGroup.add(laserPoint);
+    }
+
+    // Eventos de cámara y redimensionado
+    function setup3DEvents(container) {
+      document.querySelectorAll('.cam-preset-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const presetKey = btn.getAttribute('data-cam');
+          const preset = CAMERA_PRESETS[presetKey];
+          if (!preset) return;
+          camTargetPos.copy(preset.pos);
+          camTargetLook.copy(preset.look);
+          isCamTransitioning = true;
+
+          document.querySelectorAll('.cam-preset-btn').forEach((b) => {
+            b.className = 'cam-preset-btn px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[11px] font-medium transition';
+          });
+          btn.className = 'cam-preset-btn px-2.5 py-1 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-[11px] font-semibold transition';
+        });
+      });
+
+      window.addEventListener('resize', () => {
+        if (!container || !renderer || !camera) return;
+        const w = container.clientWidth;
+        const h = container.clientHeight;
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        renderer.setSize(w, h);
+      });
+    }
+
+    function animate3D() {
+      requestAnimationFrame(animate3D);
+      const time = Date.now() * 0.003;
+
+      // 1. Movimiento realista de tránsito logístico (carretera, ruedas, suspensión y ventilador)
+      if (isTransitMoving) {
+        if (roadTexture) {
+          roadTexture.offset.x += 0.022;
+        }
+        wheelsList.forEach((w) => {
+          w.rotation.z += 0.14;
+        });
+        if (transportGroup) {
+          // Vibración sutil realista de carretera/puerto
+          transportGroup.position.y = Math.sin(time * 8) * 0.012 + Math.cos(time * 13) * 0.006;
+          transportGroup.rotation.z = Math.sin(time * 4) * 0.004;
+        }
+      }
+
+      if (reeferFanMesh) {
+        reeferFanMesh.rotation.x += 0.25;
+      }
+
+      if (beaconLightMesh) {
+        beaconLightMesh.material.emissiveIntensity = 0.5 + Math.sin(time * 5) * 0.5;
+      }
+
+      // 2. Animación del Escaneo Láser Rápido IA + QR sobre las 18 cajas
+      if (aiScanProgress >= 0) {
+        aiScanProgress += 0.018;
+        scanLaserGroup.visible = true;
+        const scanX = -2.8 + aiScanProgress * 6.0;
+        scanLaserGroup.position.set(scanX, 1.85, 0.95);
+
+        cargoBoxes.forEach((box) => {
+          if (scanX >= box.worldX) {
+            box.highlightMat.opacity = 0.95;
+          }
+        });
+
+        if (aiScanProgress >= 1) {
+          aiScanProgress = -1;
+          scanLaserGroup.visible = false;
+          setTimeout(() => {
+            cargoBoxes.forEach((box) => {
+              box.highlightMat.opacity = 0.35;
+            });
+          }, 1800);
+        }
+      }
+
+      // 3. Transición suave de cámaras preestablecidas
+      if (isCamTransitioning && controls) {
+        camera.position.lerp(camTargetPos, 0.08);
+        controls.target.lerp(camTargetLook, 0.08);
+        if (camera.position.distanceTo(camTargetPos) < 0.05) {
+          isCamTransitioning = false;
+        }
+      }
+
+      if (controls) controls.update();
+      renderer.render(scene, camera);
+    }
+
+    // =========================================================================
+    // 3. MOTOR DE CÁLCULO FINANCIERO, TÉRMICO, SENSIBILIDAD Y JSON SOLIDITY
+    // =========================================================================
+    function formatCurrency(num) {
+      return '$' + num.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    }
+
+    // Regla termocrómica solicitada: 4°C-12°C Óptimo (Verde), 13°C-20°C Alerta (Ámbar), >20°C o <4°C Ruptura (Rojo)
+    function evaluateThermalState(temp) {
+      if (temp >= 4 && temp <= 12) {
+        return {
+          status: 'OPTIMO',
+          erpLabel: 'Aprobado Exportación',
+          label: `ÓPTIMO · Cadena de Frío Estable (${temp}°C)`,
+          colorHex: 0x10b981,
+          badgeBorder: 'border-emerald-500/50',
+          textColor: 'text-emerald-400',
+          dotClass: 'bg-emerald-400 shadow-[0_0_10px_#10b981]',
+          penalty: 0
+        };
+      } else if (temp >= 13 && temp <= 20) {
+        return {
+          status: 'ALERTA_PREVENTIVA',
+          erpLabel: 'Alerta Térmica',
+          label: `ALERTA PREVENTIVA · Tinta Ámbar (${temp}°C)`,
+          colorHex: 0xf59e0b,
+          badgeBorder: 'border-amber-500/60',
+          textColor: 'text-amber-400',
+          dotClass: 'bg-amber-400 shadow-[0_0_10px_#f59e0b]',
+          penalty: 20
+        };
+      } else {
+        return {
+          status: 'RUPTURA_CADENA_FRIO',
+          erpLabel: 'Alerta Térmica Crítica',
+          label: `RUPTURA CADENA FRÍO · Tinta Roja (${temp}°C)`,
+          colorHex: 0xef4444,
+          badgeBorder: 'border-rose-500/70',
+          textColor: 'text-rose-400',
+          dotClass: 'bg-rose-500 shadow-[0_0_12px_#ef4444]',
+          penalty: 48
+        };
+      }
+    }
+
+    function updateSimulation() {
+      // Leer controles actuales
+      state.kg = parseFloat(document.getElementById('input-kg').value);
+      state.tempActual = parseFloat(document.getElementById('input-temp').value);
+      state.costo = parseFloat(document.getElementById('input-cost').value);
+      state.precio = parseFloat(document.getElementById('input-price').value);
+      state.flete = parseFloat(document.getElementById('input-freight').value);
+      state.comision = parseFloat(document.getElementById('input-comm').value);
+      state.incoterm = document.getElementById('input-incoterm').value;
+      state.etapa = parseInt(document.getElementById('input-stage').value, 10);
+
+      // Actualizar etiquetas visuales de sliders
+      document.getElementById('val-kg').textContent = `${state.kg.toLocaleString('en-US')} kg`;
+      document.getElementById('val-temp').textContent = `${state.tempActual} °C`;
+      document.getElementById('val-cost').textContent = `$${state.costo.toFixed(2)} / kg`;
+      document.getElementById('val-price').textContent = `$${state.precio.toFixed(2)} / kg`;
+      document.getElementById('val-freight').textContent = formatCurrency(state.flete);
+      document.getElementById('val-comm').textContent = `${state.comision.toFixed(1)}%`;
+      document.getElementById('val-stage').textContent = `Etapa ${state.etapa} / 4`;
+
+      // Actualizar textos ERP & CRM
+      document.getElementById('overlay-lote-code').textContent = `${state.id} · HS ${state.hs}`;
+      document.getElementById('info-origen').textContent = state.origen;
+      document.getElementById('info-importador').textContent = state.importador;
+      document.getElementById('info-hs').textContent = state.hs;
+      document.getElementById('info-temp-range').textContent = `${state.tempMin}°C a ${state.tempMax}°C`;
+      document.getElementById('crm-stage-pill').textContent = CRM_STAGES[state.etapa];
+
+      // Evaluar estado termocrómico y actualizar las 18 cajas en 3D
+      const thermo = evaluateThermalState(state.tempActual);
+      const thermoBadge = document.getElementById('thermo-badge');
+      thermoBadge.className = `px-3 py-2 rounded-xl bg-slate-950/85 border ${thermo.badgeBorder} backdrop-blur-md shadow-lg transition-colors`;
+      document.getElementById('thermo-dot').className = `w-3 h-3 rounded-full ${thermo.dotClass}`;
+      const thermoText = document.getElementById('thermo-status-text');
+      thermoText.className = `text-xs font-extrabold ${thermo.textColor} mt-0.5`;
+      thermoText.textContent = thermo.label;
+
+      const erpHeaderStatus = document.getElementById('header-erp-status');
+      erpHeaderStatus.textContent = thermo.erpLabel;
+      erpHeaderStatus.className = thermo.textColor;
+
+      cargoBoxes.forEach((box) => {
+        box.thermoMat.color.setHex(thermo.colorHex);
+        box.thermoMat.emissive.setHex(thermo.colorHex);
+      });
+
+      if (interiorLight) {
+        interiorLight.color.setHex(thermo.colorHex);
+      }
+
+      // Actualizar códigos QR grabados con láser en todas las cajas
+      refreshAllBoxLabels();
+
+      // Cálculos financieros base
+      const revenue = state.kg * state.precio;
+      const prodCost = state.kg * state.costo;
+      const commCost = revenue * (state.comision / 100);
+      const totalCost = prodCost + state.flete + commCost;
+      const netProfit = revenue - totalCost;
+      const marginPct = revenue > 0 ? (netProfit / revenue) * 100 : 0;
+
+      // Actualizar KPIs
+      document.getElementById('kpi-revenue').textContent = formatCurrency(revenue);
+      document.getElementById('kpi-total-cost').textContent = formatCurrency(totalCost);
+      const profitEl = document.getElementById('kpi-profit');
+      profitEl.textContent = formatCurrency(netProfit);
+      profitEl.className = `text-lg sm:text-xl font-extrabold font-mono-code mt-1 block ${netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+
+      const marginEl = document.getElementById('kpi-margin');
+      marginEl.textContent = `${marginPct.toFixed(1)}%`;
+      marginEl.className = `text-lg sm:text-xl font-extrabold font-mono-code mt-1 block ${marginPct >= 15 ? 'text-emerald-300' : marginPct >= 0 ? 'text-amber-300' : 'text-rose-400'}`;
+
+      // Índice de Viabilidad (0-100%)
+      let rawScore = 50 + (marginPct * 1.15) + (state.etapa * 4) - thermo.penalty;
+      const viabilityScore = Math.max(0, Math.min(100, Math.round(rawScore)));
+      document.getElementById('viability-score').textContent = viabilityScore;
+
+      const barEl = document.getElementById('viability-bar');
+      const diagEl = document.getElementById('viability-diagnosis');
+      barEl.style.width = `${viabilityScore}%`;
+
+      if (viabilityScore >= 75) {
+        barEl.className = 'h-full bg-gradient-to-r from-emerald-500 to-cyan-400 transition-all duration-300';
+        diagEl.className = 'text-xs text-emerald-400 mt-0.5';
+        diagEl.textContent = 'Alta viabilidad: Operación rentable, 18 cajas QR aprobadas y cadena de frío en rango óptimo.';
+      } else if (viabilityScore >= 45) {
+        barEl.className = 'h-full bg-gradient-to-r from-amber-500 to-yellow-400 transition-all duration-300';
+        diagEl.className = 'text-xs text-amber-400 mt-0.5';
+        diagEl.textContent = 'Viabilidad moderada: Revisar margen comercial o estabilizar temperatura del contenedor reefer.';
+      } else {
+        barEl.className = 'h-full bg-gradient-to-r from-rose-600 to-orange-500 transition-all duration-300';
+        diagEl.className = 'text-xs text-rose-400 mt-0.5';
+        diagEl.textContent = 'Riesgo crítico: Pérdida financiera o ruptura de cadena de frío detectada en tinta termocrómica.';
+      }
+
+      // Tabla de Análisis de Sensibilidad (-10%, Base, +10%)
+      renderSensitivityTable();
+
+      // Payload JSON para BioBlindExportContract.sol
+      const solidityPayload = {
+        contrato: 'BioBlindExportContract.sol',
+        redPrueba: 'Remix VM Cancun',
+        operadorAutorizado: 'operadorBioBlind (Account 1)',
+        lote: {
+          codigoQR: state.id,
+          producto: state.nombre,
+          partidaHS: state.hs,
+          volumenKg: state.kg,
+          cajasContenedor: 18,
+          empaque: state.empaque,
+          permisoSanitario: state.permiso,
+          estadoERP: thermo.erpLabel,
+          sensorTermocromico: {
+            temperaturaC: state.tempActual,
+            estado: thermo.status
+          }
+        },
+        crm: {
+          importadorB2B: state.importador,
+          destino: state.destino,
+          incoterm2020: state.incoterm,
+          etapaNegociacion: state.etapa
+        },
+        viabilidad: {
+          ingresoTotalUSD: Math.round(revenue),
+          costoTotalUSD: Math.round(totalCost),
+          utilidadNetaUSD: Math.round(netProfit),
+          rentabilidadPct: Number(marginPct.toFixed(2)),
+          indiceViabilidadPct: viabilityScore
+        }
+      };
+
+      document.getElementById('json-output').textContent = JSON.stringify(solidityPayload, null, 2);
+    }
+
+    function renderSensitivityTable() {
+      const scenarios = [
+        { name: 'Pesimista (-10% Precio)', factor: 0.90 },
+        { name: 'Escenario Base (Actual)', factor: 1.00 },
+        { name: 'Optimista (+10% Precio)', factor: 1.10 }
+      ];
+
+      const tbody = document.getElementById('sensitivity-tbody');
+      tbody.innerHTML = '';
+
+      scenarios.forEach((sc) => {
+        const pVenta = state.precio * sc.factor;
+        const ing = state.kg * pVenta;
+        const cTotal = (state.kg * state.costo) + state.flete + (ing * (state.comision / 100));
+        const util = ing - cTotal;
+        const marg = ing > 0 ? (util / ing) * 100 : 0;
+
+        const isBase = sc.factor === 1.00;
+        const isPositive = util > 0 && marg >= 10;
+
+        const tr = document.createElement('tr');
+        tr.className = isBase ? 'bg-emerald-500/10 font-bold text-white' : 'text-slate-300 hover:bg-slate-900/50';
+        tr.innerHTML = `
+          <td class="py-2.5 px-3 font-sans">${sc.name}</td>
+          <td class="py-2.5 px-3">$${pVenta.toFixed(2)}</td>
+          <td class="py-2.5 px-3">${formatCurrency(ing)}</td>
+          <td class="py-2.5 px-3">${formatCurrency(cTotal)}</td>
+          <td class="py-2.5 px-3 ${util >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${formatCurrency(util)}</td>
+          <td class="py-2.5 px-3">${marg.toFixed(1)}%</td>
+          <td class="py-2.5 px-3 font-sans">
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${isPositive ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}">
+              ${isPositive ? 'Viable Embarcar' : 'Ajustar Tarifa'}
+            </span>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // =========================================================================
+    // 4. UTILIDADES DE INTERACCIÓN (TOAST, CLIPBOARD, EVENTOS)
+    // =========================================================================
+    function showToast(title, msg) {
+      const box = document.getElementById('toast-box');
+      document.getElementById('toast-title').textContent = title;
+      document.getElementById('toast-msg').textContent = msg;
+      box.classList.remove('hidden');
+      clearTimeout(window.toastTimer);
+      window.toastTimer = setTimeout(() => {
+        box.classList.add('hidden');
+      }, 3800);
+    }
+
+    window.onload = function () {
+      init3D();
+      updateSimulation();
+
+      // Cambio de producto
+      document.getElementById('product-select').addEventListener('change', (e) => {
+        const selected = PRODUCTS_DB[e.target.value];
+        if (!selected) return;
+        state = { ...selected };
+
+        document.getElementById('input-kg').value = state.kg;
+        document.getElementById('input-temp').value = state.tempActual;
+        document.getElementById('input-cost').value = state.costo;
+        document.getElementById('input-price').value = state.precio;
+        document.getElementById('input-freight').value = state.flete;
+        document.getElementById('input-comm').value = state.comision;
+        document.getElementById('input-incoterm').value = state.incoterm;
+        document.getElementById('input-stage').value = state.etapa;
+        document.getElementById('tx-receipt').classList.add('hidden');
+
+        updateSimulation();
+        showToast('Lote Sincronizado (ERP + CRM)', `${state.nombre} cargado en las 18 cajas QR del contenedor.`);
+      });
+
+      // Listeners de todos los sliders y selects
+      ['input-kg', 'input-temp', 'input-cost', 'input-price', 'input-freight', 'input-comm', 'input-incoterm', 'input-stage'].forEach((id) => {
+        document.getElementById(id).addEventListener('input', updateSimulation);
+      });
+
+      // Botón Pausar/Reanudar Tránsito
+      document.getElementById('btn-toggle-transit').addEventListener('click', (e) => {
+        isTransitMoving = !isTransitMoving;
+        e.target.textContent = isTransitMoving ? 'Tránsito: EN MARCHA' : 'Tránsito: PAUSADO';
+        e.target.className = isTransitMoving
+          ? 'px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-xs font-semibold text-emerald-300 border border-emerald-500/40 transition'
+          : 'px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-xs font-semibold text-amber-300 border border-amber-500/40 transition';
+      });
+
+      // Botón Centrar Cámara Vista General
+      document.getElementById('btn-reset-cam').addEventListener('click', () => {
+        camTargetPos.copy(CAMERA_PRESETS.general.pos);
+        camTargetLook.copy(CAMERA_PRESETS.general.look);
+        isCamTransitioning = true;
+      });
+
+      // Botón Escanear Lote Rápido (IA + QR)
+      document.getElementById('btn-scan-ai').addEventListener('click', () => {
+        aiScanProgress = 0;
+        const scanSec = (1.6 + Math.random() * 0.4).toFixed(1);
+        document.getElementById('scan-timing-text').textContent = `18 cajas validadas en ${scanSec} s`;
+        document.getElementById('telemetry-boxes').textContent = '18 / 18 Verificadas';
+        showToast(
+          `Escaneo Rápido IA + QR (${scanSec} s)`,
+          `18 cajas (${state.id}) validadas vs. 45 min manual. Tiempos de embarque optimizados.`
+        );
+      });
+
+      // Botón Copiar JSON
+      document.getElementById('btn-copy-json').addEventListener('click', () => {
+        const jsonText = document.getElementById('json-output').textContent;
+        const tempArea = document.createElement('textarea');
+        tempArea.value = jsonText;
+        document.body.appendChild(tempArea);
+        tempArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(tempArea);
+        showToast('JSON Copiado', 'Payload listo para pegar en Remix IDE / BioBlindExportContract.sol.');
+      });
+
+      // Botón Registrar en BioBlindExportContract.sol (Remix VM Cancun)
+      document.getElementById('btn-send-solidity').addEventListener('click', () => {
+        const hash = '0x' + Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+        const receipt = document.getElementById('tx-receipt');
+        receipt.classList.remove('hidden');
+        receipt.innerHTML = `
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <span class="font-bold text-emerald-400">✓ Firma Validada en Solidity (status: true)</span>
+            <span class="text-[10px] text-slate-400">Entorno: Remix VM Cancun · Cuenta: operadorBioBlind (Account 1)</span>
+          </div>
+          <p class="mt-1 text-[11px] break-all text-slate-300">TxHash: ${hash} · Lote registrado: <strong>${state.id}</strong> (18 cajas QR)</p>
+        `;
+        showToast('Contrato Inteligente Ejecutado', `Lote ${state.id} respaldado en BioBlindExportContract.sol.`);
+      });
+    };
+  </script>
+</body>
+</html>
